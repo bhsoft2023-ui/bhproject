@@ -300,6 +300,8 @@ class SalePage(QWidget):
         if not self.cart:
             show_error(self, "الفاتورة فارغة")
             return
+        if not self._reload_prices():
+            return
         total = self.cart_total()
         try:
             paid = self.paid.value()
@@ -339,6 +341,20 @@ class SalePage(QWidget):
         self.clear_cart(ask=False)
         if self.mode == "credit":
             self.update_customer_info()
+
+    def _reload_prices(self) -> bool:
+        """يتأكد أن أسعار الفاتورة مطابقة لقاعدة البيانات قبل استلام المبلغ."""
+        changed = []
+        for l in self.cart:
+            fresh = products.get_product(self.conn, l["product"]["id"])
+            if fresh["sell_price"] != l["product"]["sell_price"]:
+                changed.append(fresh["name"])
+            l["product"] = fresh
+        if changed:
+            self.refresh_table()
+            show_error(self, "تغيّر سعر: " + "، ".join(changed) + "\nراجع الإجمالي الجديد ثم أتمم البيع.")
+            return False
+        return True
 
     def print_last(self):
         if not self.last_sale_id:
