@@ -186,9 +186,7 @@ class SalePage(QWidget):
 
     def add_to_cart(self, product, quantity):
         existing = next((l for l in self.cart if l["product"]["id"] == product["id"]), None)
-        new_qty = quantity + (existing["qty"] if existing and not product["is_weighted"] else 0)
-        if existing and product["is_weighted"]:
-            existing = None  # كل وزنة سطر مستقل
+        new_qty = quantity + (existing["qty"] if existing else 0)
         try:
             inventory.validate_qty_for_product(product, quantity)
             self._check_stock(product, new_qty if existing else quantity, exclude=existing)
