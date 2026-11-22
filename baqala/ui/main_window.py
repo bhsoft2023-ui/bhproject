@@ -87,11 +87,11 @@ class MainWindow(QMainWindow):
         central = QWidget()
         root = QHBoxLayout(central)
         self.nav = QListWidget()
-        self.nav.setFixedWidth(250)
+        self.nav.setFixedWidth(240)
         self.nav.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
         self.nav.setIconSize(QSize(1, 1))
         self.nav.setStyleSheet(
-            "QListWidget{background:#263238;color:white;font-size:12pt;border:none;}"
+            "QListWidget{background:#263238;color:white;font-size:11pt;border:none;}"
             "QListWidget::item{padding:12px;}QListWidget::item:selected{background:#00897b;}")
         self.stack = QStackedWidget()
         root.addWidget(self.nav)
@@ -102,15 +102,15 @@ class MainWindow(QMainWindow):
         pages = [
             ("بيع نقدي", "sale.cash", lambda: SalePage(ctx, "cash")),
             ("بيع آجل", "sale.credit", lambda: SalePage(ctx, "credit")),
-            ("الأصناف والأسعار", "product.view", lambda: ProductsPage(ctx)),
-            ("المخزون والصلاحية", "inventory.manage", lambda: InventoryPage(ctx)),
+            ("الأصناف", "product.view", lambda: ProductsPage(ctx)),
+            ("المخزون", "inventory.manage", lambda: InventoryPage(ctx)),
             ("المشتريات", "purchase.manage", lambda: PurchasesPage(ctx)),
             ("العملاء", "customer.view", lambda: PartiesPage(ctx, "customer")),
             ("الموردين", "supplier.manage", lambda: PartiesPage(ctx, "supplier")),
             ("المصروفات", "expense.manage", lambda: ExpensesPage(ctx)),
             ("التقارير", "report.view", lambda: ReportsPage(ctx)),
             ("المستخدمون", "user.manage", lambda: UsersPage(ctx)),
-            ("الإعدادات والنسخ", "settings.manage", lambda: SettingsPage(ctx)),
+            ("الإعدادات", "settings.manage", lambda: SettingsPage(ctx)),
         ]
         for title, perm, factory in pages:
             if u.can(perm):
@@ -138,7 +138,7 @@ class MainWindow(QMainWindow):
             QMessageBox.warning(self, "تنبيهات المخزون",
                                 f"دفعات منتهية الصلاحية: {expired}\n"
                                 f"دفعات تنتهي خلال {days} يوم: {len(alerts) - expired}\n"
-                                f"أصناف تحت حد التنبيه: {low}\n\nراجع صفحة «المخزون والصلاحية».")
+                                f"أصناف تحت حد التنبيه: {low}\n\nراجع صفحة «المخزون».")
 
     def closeEvent(self, event):
         self.ctx.on_close()

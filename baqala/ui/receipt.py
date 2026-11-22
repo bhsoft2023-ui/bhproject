@@ -32,7 +32,7 @@ def receipt_html(conn, sale_id) -> str:
             f"<br>إجمالي رصيد العميل: {fmt_money(int_to_money(bal['balance']))}</p>"
         )
     return f"""
-<html><body dir="rtl" style="font-family:Tahoma,Arial;font-size:9pt;">
+<html><body dir="rtl" style="font-family:'Noto Kufi Arabic',Tahoma,Arial;font-size:8pt;">
 <div align="center"><b style="font-size:12pt">{e(s['shop_name'])}</b><br>{e(s['shop_address'])}<br>{e(s['shop_phone'])}</div>
 <hr>
 <p>فاتورة {kind} رقم: <b>{sale['id']}</b><br>التاريخ: {sale['created_at']}<br>الكاشير: {e(sale['user_full_name'] or sale['username'])}</p>

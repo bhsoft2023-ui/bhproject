@@ -4,7 +4,6 @@ import sys
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from PyQt5.QtCore import Qt  # noqa: E402
-from PyQt5.QtGui import QFont  # noqa: E402
 from PyQt5.QtWidgets import QApplication  # noqa: E402
 
 from baqala.services import auth  # noqa: E402
@@ -14,9 +13,8 @@ out = sys.argv[1] if len(sys.argv) > 1 else "docs/screenshots"
 os.makedirs(out, exist_ok=True)
 app = QApplication(sys.argv)
 app.setLayoutDirection(Qt.RightToLeft)
-f = QFont("Noto Sans Arabic UI")
-f.setPointSize(10)
-app.setFont(f)
+from baqala.ui.fonts import apply_app_font  # noqa: E402
+apply_app_font(app)
 app.setStyleSheet(appmod.STYLE)
 ctx = appmod.AppContext(app)
 row = ctx.conn.execute("SELECT * FROM users WHERE username='admin'").fetchone()

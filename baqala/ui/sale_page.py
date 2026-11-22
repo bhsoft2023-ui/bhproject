@@ -64,7 +64,7 @@ class SalePage(QWidget):
         self.table.doubleClicked.connect(self.edit_qty)
         left.addWidget(self.table, 1)
 
-        hint = QLabel("F2 الباركود | F3 بحث | F4 تعديل الكمية | Delete حذف سطر | F12 إتمام البيع | Esc إلغاء الفاتورة")
+        hint = QLabel("F2 باركود | F3 بحث | F4 الكمية | Del حذف | F12 إتمام | Esc إلغاء")
         hint.setStyleSheet("color:#666;")
         left.addWidget(hint)
         root.addLayout(left, 3)
@@ -74,7 +74,7 @@ class SalePage(QWidget):
         bl = QVBoxLayout(box)
         self.total_lbl = QLabel("0")
         self.total_lbl.setAlignment(Qt.AlignCenter)
-        self.total_lbl.setStyleSheet("font-size:34pt;font-weight:bold;color:#0d47a1;")
+        self.total_lbl.setStyleSheet("font-size:22pt;font-weight:bold;color:#0d47a1;")
         bl.addWidget(self.total_lbl)
         self.count_lbl = QLabel("")
         self.count_lbl.setAlignment(Qt.AlignCenter)
@@ -95,7 +95,7 @@ class SalePage(QWidget):
         def btn(text, slot, color="#455a64"):
             b = QPushButton(text)
             b.setMinimumHeight(44)
-            b.setStyleSheet(f"QPushButton{{background:{color};color:white;font-size:12pt;border-radius:4px;}}")
+            b.setStyleSheet(f"QPushButton{{background:{color};color:white;font-size:11pt;border-radius:4px;}}")
             b.setFocusPolicy(Qt.NoFocus)
             b.clicked.connect(slot)
             side.addWidget(b)
@@ -111,7 +111,10 @@ class SalePage(QWidget):
         sep = QFrame()
         sep.setFrameShape(QFrame.VLine)
         root.addWidget(sep)
-        root.addLayout(side, 1)
+        side_w = QWidget()
+        side_w.setLayout(side)
+        side_w.setMaximumWidth(380)
+        root.addWidget(side_w)
 
         for key, slot in [("F2", self.barcode.setFocus), ("F3", self.search_product), ("F4", self.edit_qty),
                           ("F12", self.complete), ("Delete", self.remove_line), ("Escape", self.clear_cart)]:

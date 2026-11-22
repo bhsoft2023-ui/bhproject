@@ -5,17 +5,16 @@ import traceback
 from logging.handlers import RotatingFileHandler
 
 from PyQt5.QtCore import QLockFile, QProcess, Qt, QTimer
-from PyQt5.QtGui import QFont
 from PyQt5.QtWidgets import QApplication, QMessageBox
 
 from .. import APP_TITLE, config, db
 from ..db import now_str
 from ..services import auth, backup, settings
+from .fonts import apply_app_font
 
 log = logging.getLogger("baqala")
 
 STYLE = """
-QWidget { font-size: 11pt; }
 QPushButton { padding: 6px 12px; }
 QTableWidget { gridline-color: #ddd; selection-background-color: #b2dfdb; selection-color: black; }
 QHeaderView::section { background: #eceff1; padding: 6px; font-weight: bold; border: 1px solid #ddd; }
@@ -109,9 +108,7 @@ def run():
     app = QApplication(sys.argv)
     app.setApplicationName(APP_TITLE)
     app.setLayoutDirection(Qt.RightToLeft)
-    font = QFont("Tahoma" if sys.platform == "win32" else "Noto Sans Arabic UI")
-    font.setPointSize(11)
-    app.setFont(font)
+    apply_app_font(app)
     app.setStyleSheet(STYLE)
     setup_logging()
     sys.excepthook = excepthook

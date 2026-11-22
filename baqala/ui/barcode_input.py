@@ -43,10 +43,10 @@ class BarcodeEdit(QLineEdit):
     def __init__(self, parent=None):
         super().__init__(parent)
         f = QFont()
-        f.setPointSize(16)
+        f.setPointSize(13)
         self.setFont(f)
         self.setMinimumHeight(44)
-        self.setPlaceholderText("امسح الباركود أو اكتب الاسم ثم Enter  |  للوزن: 0.250*الباركود")
+        self.setPlaceholderText("امسح الباركود أو اكتب الاسم  |  وزن: 0.250*باركود")
         self.detector = ScanDetector()
         self._prefix = ""
         self._latin = []

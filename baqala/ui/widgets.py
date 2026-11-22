@@ -106,8 +106,9 @@ class Table(QTableWidget):
         self.setSelectionMode(QAbstractItemView.SingleSelection)
         self.setAlternatingRowColors(True)
         self.verticalHeader().setVisible(False)
-        self.verticalHeader().setDefaultSectionSize(30)
+        self.verticalHeader().setDefaultSectionSize(34)
         h = self.horizontalHeader()
+        h.setMinimumSectionSize(60)
         h.setSectionResizeMode(QHeaderView.ResizeToContents)
         if stretch_col is not None:
             h.setSectionResizeMode(stretch_col, QHeaderView.Stretch)
@@ -147,7 +148,7 @@ class Table(QTableWidget):
         show_info(parent, "تم التصدير (يفتح في Excel)")
 
 
-def title_label(text, size=16):
+def title_label(text, size=13):
     lbl = QLabel(text)
     f = QFont()
     f.setPointSize(size)
