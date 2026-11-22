@@ -41,7 +41,7 @@ class UserDialog(QDialog):
                                                         self.role.currentData(), self.active.isChecked()) or True)
         else:
             ok = guarded(self, auth.create_user, c, u, self.username.text(), self.full_name.text(),
-                         self.password.text(), self.role.currentData())
+                         self.password.text(), self.role.currentData(), self.active.isChecked())
         if ok:
             super().accept()
 

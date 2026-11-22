@@ -122,7 +122,7 @@ def list_users(conn):
     return conn.execute("SELECT * FROM users ORDER BY id").fetchall()
 
 
-def create_user(conn, actor, username, full_name, password, role) -> int:
+def create_user(conn, actor, username, full_name, password, role, active=True) -> int:
     require(actor, "user.manage")
     username = (username or "").strip()
     if not username:
@@ -134,8 +134,8 @@ def create_user(conn, actor, username, full_name, password, role) -> int:
         raise ValidationError("اسم المستخدم مستخدم مسبقاً")
     with transaction(conn):
         cur = conn.execute(
-            "INSERT INTO users (username, full_name, password_hash, role, created_at) VALUES (?, ?, ?, ?, ?)",
-            (username, (full_name or "").strip(), hash_password(password), role, now_str()),
+            "INSERT INTO users (username, full_name, password_hash, role, active, created_at) VALUES (?, ?, ?, ?, ?, ?)",
+            (username, (full_name or "").strip(), hash_password(password), role, 1 if active else 0, now_str()),
         )
     return cur.lastrowid
 
