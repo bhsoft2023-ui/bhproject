@@ -1,0 +1,49 @@
+name: SQL Server tests
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  test:
+    runs-on: ubuntu-22.04
+    services:
+      mssql:
+        image: mcr.microsoft.com/mssql/server:2022-latest
+        env:
+          ACCEPT_EULA: "Y"
+          MSSQL_SA_PASSWORD: ${{ secrets.MSSQL_SA_PASSWORD || 'Ci_Only_Pass_2026!' }}
+          MSSQL_COLLATION: Arabic_CI_AS
+        ports: ["1433:1433"]
+    env:
+      BAQALA_TEST_MSSQL_SERVER: localhost
+      BAQALA_TEST_MSSQL_USER: sa
+      BAQALA_TEST_MSSQL_PASSWORD: ${{ secrets.MSSQL_SA_PASSWORD || 'Ci_Only_Pass_2026!' }}
+      QT_QPA_PLATFORM: offscreen
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install ODBC Driver 18
+        run: |
+          if ! odbcinst -q -d | grep -q "ODBC Driver 18 for SQL Server"; then
+            curl -fsSL https://packages.microsoft.com/keys/microsoft.asc | sudo gpg --dearmor -o /usr/share/keyrings/microsoft-prod.gpg
+            curl -fsSL https://packages.microsoft.com/config/ubuntu/22.04/prod.list | sudo tee /etc/apt/sources.list.d/mssql-release.list
+            sudo apt-get update
+            sudo ACCEPT_EULA=Y apt-get install -y msodbcsql18 unixodbc-dev
+          fi
+          sudo apt-get install -y libegl1 libxkbcommon0 libdbus-1-3
+      - name: Install dependencies
+        run: pip install -r requirements-dev.txt
+      - name: Wait for SQL Server
+        run: |
+          for i in $(seq 1 60); do
+            python -c "import pyodbc,os; pyodbc.connect('DRIVER={ODBC Driver 18 for SQL Server};SERVER=localhost;UID=sa;PWD='+os.environ['BAQALA_TEST_MSSQL_PASSWORD']+';TrustServerCertificate=yes', timeout=3)" && exit 0
+            sleep 2
+          done
+          exit 1
+      - name: Run tests (SQLite + SQL Server)
+        run: python -m pytest -q

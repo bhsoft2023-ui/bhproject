@@ -63,13 +63,14 @@ class SettingsPage(QWidget):
         g.addRow("مجلد نسخ إضافي", self._with_browse(self.extra))
         self.last = QLabel()
         g.addRow("آخر نسخة:", self.last)
-        g.addRow(QLabel(f"<small>مكان البيانات: \u200e{config.db_path()}\u200e</small>"))
+        g.addRow(QLabel(f"<small>قاعدة البيانات: \u200e{ctx.db_config.label}\u200e</small>"))
         row.addWidget(bk)
         lay.addLayout(row)
 
         btns = QHBoxLayout()
         for text, slot in [("حفظ الإعدادات", self.save), ("نسخة احتياطية الآن", self.backup_now),
-                           ("استعادة نسخة...", self.restore), ("فتح مجلد النسخ", self.open_dir)]:
+                           ("استعادة نسخة...", self.restore), ("فتح مجلد النسخ", self.open_dir),
+                           ("قاعدة البيانات...", self.database_settings)]:
             b = QPushButton(text)
             b.clicked.connect(slot)
             btns.addWidget(b)
@@ -109,7 +110,7 @@ class SettingsPage(QWidget):
 
     def refresh_list(self):
         self.last.setText(settings.get(self.conn, "last_backup_at") or "لا توجد")
-        files = backup.list_backups(backup_dir(self.conn))
+        files = backup.list_backups(backup_dir(self.conn), backup.suffix_for(self.conn))
         from datetime import datetime
         self.table.fill([[p.name, datetime.fromtimestamp(p.stat().st_mtime).strftime("%Y-%m-%d %H:%M"),
                           f"{p.stat().st_size / 1024:.0f} KB"] for p in files], keys=[str(p) for p in files])
@@ -140,10 +141,18 @@ class SettingsPage(QWidget):
     def restore(self):
         path = self.table.selected_key()
         if not path:
-            path, _ = QFileDialog.getOpenFileName(self, "اختر ملف النسخة", str(backup_dir(self.conn)), "SQLite (*.db)")
+            suffix = backup.suffix_for(self.conn)
+            kind = "SQL Server" if suffix == backup.MSSQL_SUFFIX else "SQLite"
+            path, _ = QFileDialog.getOpenFileName(self, "اختر ملف النسخة", str(backup_dir(self.conn)),
+                                                  f"{kind} (*{suffix})")
         if not path:
             return
         if not confirm(self, f"سيتم استبدال كل البيانات الحالية بالنسخة:\n{Path(path).name}\n"
                              "(سيتم حفظ نسخة أمان من البيانات الحالية أولاً)\nسيُعاد تشغيل البرنامج. متابعة؟"):
             return
         guarded(self, self.ctx.restore, path)
+
+    def database_settings(self):
+        from .db_dialog import DatabaseDialog
+        if DatabaseDialog(self).exec_() and confirm(self, "تم حفظ إعداد قاعدة البيانات.\nإعادة تشغيل البرنامج الآن لتطبيقه؟"):
+            self.ctx.restart()

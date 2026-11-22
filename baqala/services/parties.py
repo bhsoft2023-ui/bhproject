@@ -111,17 +111,17 @@ def statement(conn, kind, party_id):
     party = get_party(conn, kind, party_id)
     if kind == "customer":
         moves = conn.execute(
-            "SELECT created_at, 'فاتورة آجل رقم ' || id AS description, total - paid AS debit, 0 AS credit"
+            "SELECT created_at, 1 AS kind, id AS ref, total - paid AS debit, 0 AS credit"
             " FROM sales WHERE customer_id = ? AND total - paid > 0"
-            " UNION ALL SELECT created_at, 'سداد ' || note, 0, amount FROM customer_payments WHERE customer_id = ?"
+            " UNION ALL SELECT created_at, 2, note, 0, amount FROM customer_payments WHERE customer_id = ?"
             " ORDER BY 1",
             (party_id, party_id),
         ).fetchall()
     else:
         moves = conn.execute(
-            "SELECT created_at, 'فاتورة شراء رقم ' || id, total - paid, 0 FROM purchases"
+            "SELECT created_at, 1, id, total - paid, 0 FROM purchases"
             " WHERE supplier_id = ? AND total - paid > 0"
-            " UNION ALL SELECT created_at, 'سداد ' || note, 0, amount FROM supplier_payments WHERE supplier_id = ?"
+            " UNION ALL SELECT created_at, 2, note, 0, amount FROM supplier_payments WHERE supplier_id = ?"
             " ORDER BY 1",
             (party_id, party_id),
         ).fetchall()
@@ -129,9 +129,11 @@ def statement(conn, kind, party_id):
     result = []
     if running:
         result.append(("", "رصيد افتتاحي", int_to_money(running), int_to_money(0), int_to_money(running)))
-    for m in moves:
-        running += m[2] - m[3]
-        result.append((m[0], m[1].strip(), int_to_money(m[2]), int_to_money(m[3]), int_to_money(running)))
+    invoice = "فاتورة آجل رقم" if kind == "customer" else "فاتورة شراء رقم"
+    for created_at, move_kind, ref, debit, credit in moves:
+        running += debit - credit
+        desc = f"{invoice} {ref}" if move_kind == 1 else f"سداد {ref or ''}".strip()
+        result.append((created_at, desc, int_to_money(debit), int_to_money(credit), int_to_money(running)))
     return result
 
 

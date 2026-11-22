@@ -15,7 +15,9 @@ def qapp():
 
 class Ctx:
     def __init__(self, conn, user):
+        from baqala import config
         self.conn, self.user, self.window = conn, user, None
+        self.db_config = config.DatabaseConfig(engine=getattr(conn, "dialect", "sqlite"))
 
     def status(self, text):
         pass

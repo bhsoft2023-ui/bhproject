@@ -18,7 +18,7 @@ DEFAULTS = {
 
 
 def get(conn, key: str) -> str:
-    row = conn.execute("SELECT value FROM settings WHERE key = ?", (key,)).fetchone()
+    row = conn.execute('SELECT value FROM settings WHERE "key" = ?', (key,)).fetchone()
     return row["value"] if row else DEFAULTS.get(key, "")
 
 
@@ -31,7 +31,7 @@ def get_int(conn, key: str, fallback: int = 0) -> int:
 
 def get_all(conn) -> dict:
     data = dict(DEFAULTS)
-    for row in conn.execute("SELECT key, value FROM settings"):
+    for row in conn.execute('SELECT "key", value FROM settings'):
         data[row["key"]] = row["value"]
     return data
 
@@ -39,11 +39,9 @@ def get_all(conn) -> dict:
 def set_many(conn, values: dict) -> None:
     with transaction(conn):
         for key, value in values.items():
-            conn.execute(
-                "INSERT INTO settings (key, value) VALUES (?, ?)"
-                " ON CONFLICT(key) DO UPDATE SET value = excluded.value",
-                (key, str(value)),
-            )
+            cur = conn.execute('UPDATE settings SET value = ? WHERE "key" = ?', (str(value), key))
+            if cur.rowcount == 0:
+                conn.execute('INSERT INTO settings ("key", value) VALUES (?, ?)', (key, str(value)))
 
 
 def set_value(conn, key: str, value) -> None:

@@ -82,8 +82,8 @@ def ensure_default_admin(conn) -> bool:
     with transaction(conn):
         conn.execute(
             "INSERT INTO users (username, full_name, password_hash, role, must_change_password, created_at)"
-            " VALUES ('admin', 'المدير', ?, 'admin', 1, ?)",
-            (hash_password("admin"), now_str()),
+            " VALUES ('admin', ?, ?, 'admin', 1, ?)",
+            ("المدير", hash_password("admin"), now_str()),
         )
     return True
 

@@ -102,8 +102,9 @@ def update_product(conn, user, product_id, data: dict) -> None:
     clean = _clean(conn, data, product_id)
     if old["is_weighted"] and not clean["is_weighted"]:
         frac = conn.execute(
-            "SELECT 1 FROM batches WHERE product_id = ? AND qty_remaining % 1000 <> 0 LIMIT 1", (product_id,)
-        ).fetchone()
+            "SELECT CASE WHEN EXISTS(SELECT 1 FROM batches WHERE product_id = ? AND qty_remaining % 1000 <> 0)"
+            " THEN 1 ELSE 0 END", (product_id,)
+        ).fetchone()[0]
         if frac:
             raise ValidationError("لا يمكن إلغاء البيع بالوزن لوجود كميات عشرية في المخزون")
     with transaction(conn):
@@ -143,8 +144,8 @@ def delete_product(conn, user, product_id) -> str:
     require(user, "product.edit")
     get_product(conn, product_id)
     used = conn.execute(
-        "SELECT EXISTS(SELECT 1 FROM sale_items WHERE product_id = ?)"
-        " OR EXISTS(SELECT 1 FROM batches WHERE product_id = ?)",
+        "SELECT CASE WHEN EXISTS(SELECT 1 FROM sale_items WHERE product_id = ?)"
+        " OR EXISTS(SELECT 1 FROM batches WHERE product_id = ?) THEN 1 ELSE 0 END",
         (product_id, product_id),
     ).fetchone()[0]
     with transaction(conn):

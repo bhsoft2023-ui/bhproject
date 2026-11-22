@@ -9,15 +9,18 @@ from baqala.services import backup, inventory, products, sales
 from baqala.services.sales import CartLine
 
 
-def test_backup_rotation_and_integrity(conn, tmp_path, make_product):
+def test_backup_rotation_and_integrity(engine, conn, bk_root, tmp_path, make_product):
     make_product("أرز")
-    d = tmp_path / "bk"
+    d = bk_root / "bk"
     extra = tmp_path / "usb"
     for i in range(5):
         backup.create_backup(conn, d, keep=3, extra_dir=extra, now=datetime(2026, 1, 1, 10, i))
-    files = backup.list_backups(d)
-    assert len(files) == 3 and len(backup.list_backups(extra)) == 3
-    backup.verify_backup_file(files[0])
+    suffix = backup.suffix_for(conn)
+    files = backup.list_backups(d, suffix)
+    assert len(files) == 3
+    if engine == "sqlite":  # ملف .bak في الحاوية مملوك لمستخدم SQL Server ولا يُنسخ للمجلد الإضافي
+        assert len(backup.list_backups(extra, suffix)) == 3
+    backup.verify_backup_file(files[0], conn)
 
 
 def test_is_due():
@@ -71,3 +74,41 @@ def test_data_persists_after_reopen(tmp_path):
     assert c.execute("SELECT COUNT(*) FROM sales").fetchone()[0] == 1
     assert db.integrity_ok(c)
     c.close()
+
+
+def test_mssql_backup_restore_roundtrip(engine, conn, admin, bk_root, request):
+    if engine != "mssql":
+        pytest.skip("SQL Server فقط")
+    from tests.conftest import drop_mssql_database, mssql_config
+    from baqala import mssql
+    cfg = mssql_config("BaqalaPOS_restore_test")
+    c = mssql.connect(cfg)
+    try:
+        from baqala.services import auth
+        auth.ensure_default_admin(c)
+        adm = auth.authenticate(c, "admin", "admin")
+        products.create_product(c, adm, {"name": "قبل", "sell_price": "1"})
+        bk = backup.create_backup(c, bk_root / "bk")
+        assert bk.suffix == ".bak"
+        products.create_product(c, adm, {"name": "بعد", "sell_price": "1"})
+        c.close()
+        safety = backup.restore_mssql_backup(cfg, bk, bk_root / "safety")
+        assert safety.exists()
+        c = mssql.connect(cfg)
+        assert [r["name"] for r in c.execute("SELECT name FROM products")] == ["قبل"]
+        assert db.integrity_ok(c)
+        with pytest.raises(ValidationError):
+            backup.verify_backup_file(bk_root / "missing.bak", c)
+    finally:
+        c.close()
+        drop_mssql_database(cfg)
+
+
+def test_mssql_rejects_sqlite_file_and_vice_versa(engine, conn, tmp_path):
+    if engine == "mssql":
+        from baqala.config import DatabaseConfig
+        with pytest.raises(ValidationError):
+            backup.restore_mssql_backup(DatabaseConfig(), tmp_path / "x.db", tmp_path)
+    else:
+        with pytest.raises(ValidationError):
+            backup.verify_backup_file(tmp_path / "x.bak", conn)

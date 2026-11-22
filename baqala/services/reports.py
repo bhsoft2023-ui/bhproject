@@ -58,7 +58,7 @@ def daily_sales(conn, date_from, date_to):
         "SELECT date(created_at) AS day, COUNT(*) AS cnt, SUM(total) AS total, SUM(cost_total) AS cost,"
         " SUM(CASE WHEN sale_type='cash' THEN total ELSE 0 END) AS cash,"
         " SUM(CASE WHEN sale_type='credit' THEN total ELSE 0 END) AS credit"
-        " FROM sales WHERE date(created_at) BETWEEN ? AND ? GROUP BY day ORDER BY day",
+        " FROM sales WHERE date(created_at) BETWEEN ? AND ? GROUP BY date(created_at) ORDER BY day",
         (date_from, date_to),
     ).fetchall()
     return [
@@ -73,7 +73,7 @@ def daily_sales(conn, date_from, date_to):
 
 def top_products(conn, date_from, date_to, limit=50):
     rows = conn.execute(
-        "SELECT si.product_name, si.unit, SUM(si.qty) AS qty, SUM(si.line_total) AS total,"
+        "SELECT MAX(si.product_name) AS product_name, MAX(si.unit) AS unit, SUM(si.qty) AS qty, SUM(si.line_total) AS total,"
         " SUM(si.line_total - si.cost_total) AS profit FROM sale_items si JOIN sales s ON s.id = si.sale_id"
         " WHERE date(s.created_at) BETWEEN ? AND ? GROUP BY si.product_id ORDER BY total DESC LIMIT ?",
         (date_from, date_to, limit),

@@ -42,6 +42,8 @@ Source: "..\dist\BaqalaPOS\*"; DestDir: "{app}"; Flags: ignoreversion recursesub
 [Dirs]
 ; مجلد البيانات مشترك لكل مستخدمي ويندوز على الجهاز وقابل للكتابة، ولا يُحذف عند الإزالة.
 Name: "{commonappdata}\BaqalaPOS"; Permissions: users-modify; Flags: uninsneveruninstall
+; خدمة SQL Server تكتب ملفات النسخ (.bak) بنفسها، لذلك تُمنح الخدمات صلاحية الكتابة في مجلد النسخ.
+Name: "{commonappdata}\BaqalaPOS\backups"; Permissions: users-modify service-modify; Flags: uninsneveruninstall
 
 [Icons]
 Name: "{group}\{#AppName}"; Filename: "{app}\BaqalaPOS.exe"

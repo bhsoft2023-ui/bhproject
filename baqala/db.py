@@ -1,4 +1,6 @@
-"""قاعدة البيانات المحلية (SQLite) والمعاملات.
+"""قاعدة البيانات والمعاملات: SQL Server (الأساسية) أو SQLite محلية (احتياطية).
+
+نفس الخدمات تعمل على المحركين؛ تفاصيل SQL Server في baqala/mssql.py.
 
 - WAL + synchronous=FULL: كل معاملة مُثبّتة (COMMIT) تبقى سليمة عند انقطاع الكهرباء،
   وأي معاملة لم تكتمل تُلغى تلقائياً عند الفتح التالي.
@@ -232,7 +234,24 @@ def connect(path) -> sqlite3.Connection:
     return conn
 
 
+def dialect(conn) -> str:
+    return getattr(conn, "dialect", "sqlite")
+
+
+def open_database(cfg=None):
+    """يفتح قاعدة البيانات حسب database.ini (SQL Server افتراضياً)."""
+    from . import config
+    cfg = cfg or config.load_db_config()
+    if cfg.engine == "sqlite":
+        return connect(config.db_path())
+    from . import mssql
+    return mssql.connect(cfg)
+
+
 def schema_version(conn) -> int:
+    if dialect(conn) == "mssql":
+        from . import mssql
+        return mssql.schema_version(conn)
     return conn.execute("PRAGMA user_version").fetchone()[0]
 
 
@@ -253,6 +272,10 @@ def migrate(conn) -> None:
 @contextmanager
 def transaction(conn):
     """معاملة ذرّية: إما أن تُنفّذ كل الخطوات أو لا شيء. تدعم التداخل عبر SAVEPOINT."""
+    if dialect(conn) == "mssql":
+        with _mssql_transaction(conn):
+            yield conn
+        return
     if conn.in_transaction:
         name = f"sp_{id(object())}"
         conn.execute(f"SAVEPOINT {name}")
@@ -275,6 +298,29 @@ def transaction(conn):
             conn.execute("COMMIT")
 
 
+@contextmanager
+def _mssql_transaction(conn):
+    if conn.in_transaction:
+        name = conn.savepoint()
+        try:
+            yield
+        except BaseException:
+            conn.rollback_to(name)
+            raise
+    else:
+        conn.begin()
+        try:
+            yield
+        except BaseException:
+            conn.rollback()
+            raise
+        else:
+            conn.commit()
+
+
 def integrity_ok(conn) -> bool:
+    if dialect(conn) == "mssql":
+        from . import mssql
+        return mssql.integrity_ok(conn)
     row = conn.execute("PRAGMA integrity_check").fetchone()
     return row is not None and row[0] == "ok"

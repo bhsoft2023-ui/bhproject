@@ -75,7 +75,7 @@ def allocate_fefo(conn, product_id, qty_int: int, today=None):
     rows = conn.execute(
         "SELECT id, qty_remaining, unit_cost, expiry_date FROM batches"
         " WHERE product_id = ? AND qty_remaining > 0 AND (expiry_date IS NULL OR expiry_date >= ?)"
-        " ORDER BY expiry_date IS NULL, expiry_date, received_at, id",
+        " ORDER BY CASE WHEN expiry_date IS NULL THEN 1 ELSE 0 END, expiry_date, received_at, id",
         (product_id, today),
     ).fetchall()
     allocations, needed = [], qty_int
@@ -136,7 +136,7 @@ def list_batches(conn, product_id=None, only_available=True):
     )
     if where:
         sql += " WHERE " + " AND ".join(where)
-    sql += " ORDER BY p.name, b.expiry_date IS NULL, b.expiry_date, b.received_at"
+    sql += " ORDER BY p.name, CASE WHEN b.expiry_date IS NULL THEN 1 ELSE 0 END, b.expiry_date, b.received_at"
     return conn.execute(sql, params).fetchall()
 
 

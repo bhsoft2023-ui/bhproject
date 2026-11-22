@@ -35,7 +35,8 @@ class AppContext:
 
     def __init__(self, app):
         self.app = app
-        self.conn = db.connect(config.db_path())
+        self.db_config = config.load_db_config()
+        self.conn = db.open_database(self.db_config)
         self.user = None
         self.window = None
         self.restart_requested = False
@@ -82,15 +83,37 @@ class AppContext:
         self.timer.stop()
         self.conn.close()
         try:
-            backup.restore_backup(config.db_path(), path, backup_dir_safe())
+            if db.dialect(self.conn) == "mssql":
+                backup.restore_mssql_backup(self.db_config, path, backup_dir_safe())
+            else:
+                backup.restore_backup(config.db_path(), path, backup_dir_safe())
         finally:
-            self.restart_requested = True
-            QProcess.startDetached(sys.executable, sys.argv[1:] if getattr(sys, "frozen", False) else sys.argv)
-            self.app.quit()
+            self.restart()
+
+    def restart(self):
+        self.timer.stop()
+        self.restart_requested = True
+        self.conn.close()
+        QProcess.startDetached(sys.executable, sys.argv[1:] if getattr(sys, "frozen", False) else sys.argv)
+        self.app.quit()
 
 
 def backup_dir_safe():
     return config.default_backup_dir()
+
+
+def open_context(app):
+    """يفتح قاعدة البيانات؛ وعند الفشل (مثلاً خادم SQL Server غير متاح) يعرض نافذة إعداد الاتصال."""
+    from .db_dialog import DatabaseDialog
+    while True:
+        try:
+            return AppContext(app)
+        except Exception as exc:  # noqa: BLE001
+            log.exception("تعذر فتح قاعدة البيانات")
+            dlg = DatabaseDialog(intro=f"تعذر فتح قاعدة البيانات:\n{exc}\n\n"
+                                       "صحّح إعداد الاتصال، أو اختر SQLite للعمل على هذا الجهاز فقط.")
+            if not dlg.exec_():
+                return None
 
 
 def excepthook(exc_type, exc, tb):
@@ -119,11 +142,8 @@ def run():
         QMessageBox.warning(None, APP_TITLE, "البرنامج مفتوح بالفعل على هذا الجهاز.")
         return 1
 
-    try:
-        ctx = AppContext(app)
-    except Exception as exc:  # noqa: BLE001
-        log.exception("تعذر فتح قاعدة البيانات")
-        QMessageBox.critical(None, APP_TITLE, f"تعذر فتح قاعدة البيانات:\n{exc}")
+    ctx = open_context(app)
+    if ctx is None:
         return 1
     ctx.auto_backup()
 

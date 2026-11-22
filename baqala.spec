@@ -8,8 +8,8 @@ a = Analysis(
     ["main.py"],
     pathex=["."],
     binaries=[],
-    datas=[("baqala/assets/fonts", "baqala/assets/fonts")],
-    hiddenimports=["PyQt5.QtPrintSupport"],
+    datas=[("baqala/assets/fonts", "baqala/assets/fonts"), ("baqala/sql", "baqala/sql")],
+    hiddenimports=["PyQt5.QtPrintSupport", "pyodbc"],
     excludes=["tkinter", "PyQt5.QtWebEngineWidgets", "PyQt5.QtQml", "PyQt5.QtQuick", "PyQt5.Qt3DCore"],
     noarchive=False,
 )

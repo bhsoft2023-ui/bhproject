@@ -21,15 +21,19 @@
 ## البنية التقنية
 
 - **Python 3.10+ و PyQt5**: اخترت PyQt5 بدل Tkinter لأن دعم RTL والعربية فيه أصلي (`setLayoutDirection`)، وجداوله سريعة مع آلاف الأصناف، ويوفر طباعة مباشرة للطابعات الحرارية (`QPrinter`).
-- **SQLite** (مضمّن في Python): ملف واحد محلي، بدون خادم.
+- **SQL Server** (قاعدة البيانات الأساسية، اسمها `BaqalaPOS`) عبر ODBC و`pyodbc`. يكفي **SQL Server Express** المجاني على جهاز المحل، ويمكن أن تتصل به عدة أجهزة كاشير في الشبكة المحلية.
+- **SQLite** (احتياطي): ملف محلي بدون خادم، لجهاز لا يوجد عليه SQL Server. يُختار من الإعدادات.
 - **PyInstaller + Inno Setup**: لإنتاج `BaqalaPOS-Setup.exe` بنقرة واحدة.
 
 ```
 main.py                 نقطة التشغيل
 baqala/
   money.py              Decimal: المبالغ بدقة 0.01 والكميات بدقة 0.001 (رفض float)
-  db.py                 المخطط، الترحيل، المعاملات (WAL + synchronous=FULL)
-  config.py             مكان البيانات (خارج مجلد البرنامج)
+  db.py                 المعاملات وفتح القاعدة حسب الإعداد، ومخطط SQLite (WAL + synchronous=FULL)
+  mssql.py              الاتصال بـ SQL Server، الإنشاء والترحيل التلقائي، النسخ .bak والاستعادة
+  sql/BaqalaPOS_SQLServer.sql  سكربت T-SQL الكامل لقاعدة BaqalaPOS
+  transfer.py           نقل البيانات من SQLite إلى SQL Server
+  config.py             مكان البيانات وإعداد الاتصال database.ini (خارج مجلد البرنامج)
   scan.py textnorm.py   كشف قارئ الباركود وتطبيع النص العربي
   services/             منطق الأعمال (بدون واجهة): auth products inventory sales
                         parties purchases expenses reports backup settings
@@ -43,7 +47,9 @@ baqala.spec             إعداد PyInstaller
 
 - المبالغ تُخزن كأعداد صحيحة بوحدة 1/100 ريال، والكميات بوحدة 1/1000، وكل الحسابات بـ `Decimal` — لا توجد أخطاء تقريب float.
 - الجداول: `products` `categories` `batches` (دفعات بتاريخ انتهاء وتكلفة) `sales` `sale_items` `sale_item_batches` (من أي دفعة صُرف كل سطر) `customers` `suppliers` `customer_payments` `supplier_payments` `purchases` `expenses` `stock_adjustments` `price_history` `users` `settings`.
-- كل عملية (بيع، شراء، سداد، إتلاف) تتم في **معاملة واحدة**: إن انقطعت الكهرباء في منتصفها لا يُحفظ منها شيء. الوضع `journal_mode=WAL` و `synchronous=FULL` يضمنان أن ما تم تأكيده لا يضيع.
+- كل عملية (بيع، شراء، سداد، إتلاف) تتم في **معاملة واحدة**: إن انقطعت الكهرباء في منتصفها لا يُحفظ منها شيء. في SQL Server بـ `XACT_ABORT ON` وسجل المعاملات، وفي SQLite بـ `journal_mode=WAL` و `synchronous=FULL`.
+- في SQL Server كل عملية كتابة تأخذ قفلاً على مستوى التطبيق (`sp_getapplock`)، فلا يبيع جهازا كاشير نفس الدفعة أو يتجاوزان السقف الائتماني معاً.
+- مخطط SQL Server: ترميز عربي `Arabic_CI_AS`، مفاتيح أجنبية، قيود `CHECK` على المبالغ والكميات، باركود فريد، فهارس للبحث وFEFO والتقارير، و`READ_COMMITTED_SNAPSHOT` حتى لا تُبطئ التقارير البيع.
 - الصنف الذي له حركات لا يُحذف فعلياً بل يُوقف، حتى تبقى التقارير صحيحة.
 - الربح يُحسب من **تكلفة الدفعة الفعلية** التي صُرفت (وليس متوسطاً تقديرياً).
 
@@ -72,6 +78,8 @@ python -m pytest -q
 
 تغطي: الحسابات المالية والتقريب، FEFO واستبعاد المنتهي، السقف الائتماني، خصم المخزون والتراجع الكامل عند الفشل، الصلاحيات، التقارير، النسخ والاستعادة، كشف الباركود، واختبار دخان للواجهة.
 
+لتشغيل الاختبارات نفسها على SQL Server أيضاً (كل اختبار يعمل على المحركين): عرّف `BAQALA_TEST_MSSQL_SERVER` و`BAQALA_TEST_MSSQL_USER` و`BAQALA_TEST_MSSQL_PASSWORD`، و`BAQALA_TEST_MSSQL_SHARE` لمجلد يراه الخادم لاختبار ملفات `.bak`. ويشغّلها `.github/workflows/sqlserver-tests.yml` تلقائياً.
+
 ## بناء ملف التثبيت
 
 **الطريقة 1 — تلقائياً عبر GitHub Actions:** كل دفع إلى المستودع يشغّل `.github/workflows/windows-build.yml` على ويندوز: الاختبارات ← PyInstaller ← Inno Setup، ويرفع `BaqalaPOS-Setup-1.0.0.exe` كـ Artifact في صفحة التشغيل.
@@ -83,6 +91,17 @@ python -m pytest -q
 3. الناتج: `Output\BaqalaPOS-Setup-1.0.0.exe`.
 
 ما يفعله: `pyinstaller baqala.spec` ينتج مجلد `dist\BaqalaPOS` فيه `BaqalaPOS.exe` و Python و Qt (لا يحتاج جهاز المحل تثبيت Python). ثم `ISCC installer\BaqalaPOS.iss` يجمعه في مثبت عربي.
+
+## قاعدة البيانات SQL Server
+
+1. ثبّت **SQL Server 2022 Express** (مجاني) على جهاز المحل باسم المثيل الافتراضي `SQLEXPRESS`، مع **Microsoft ODBC Driver 18 for SQL Server** (إن لم يوجد يستخدم البرنامج تعريف «SQL Server» المدمج في ويندوز).
+2. عند أول تشغيل يتصل البرنامج بـ `.\SQLEXPRESS` بحساب ويندوز الحالي، و**ينشئ قاعدة `BaqalaPOS` وكل جداولها تلقائياً**. وإن لم يجد الخادم تظهر نافذة «إعداد قاعدة البيانات».
+3. الإعداد يُغيَّر من **الإعدادات ← قاعدة البيانات...**: الخادم، اسم القاعدة، الدخول بحساب ويندوز أو بمستخدم SQL، أو اختيار SQLite. زر «اختبار الاتصال» يتحقق قبل الحفظ.
+4. إن كانت على الجهاز بيانات SQLite سابقة وقاعدة SQL Server فارغة، يعرض البرنامج **نقل كل البيانات** إليها في معاملة واحدة مع التحقق من عدد السجلات.
+5. الإعداد محفوظ في `C:\ProgramData\BaqalaPOS\database.ini`، وكلمة مرور مستخدم SQL مشفرة بـ Windows DPAPI.
+6. **عدة أجهزة كاشير:** على كل جهاز اجعل الخادم `اسم-جهاز-الخادم\SQLEXPRESS`، وفعّل TCP/IP في SQL Server Configuration Manager، واسمح بالمنفذ في جدار الحماية.
+
+لإنشاء القاعدة يدوياً (اختياري): `sqlcmd -S .\SQLEXPRESS -E -i baqala\sql\BaqalaPOS_SQLServer.sql`.
 
 ## التثبيت في المحل
 
@@ -97,8 +116,9 @@ python -m pytest -q
 ## النسخ الاحتياطي التلقائي
 
 - كل 10 دقائق يفحص البرنامج: إن مرت المدة المحددة (افتراضياً **4 ساعات**) منذ آخر نسخة، ينشئ نسخة جديدة. كما ينشئ نسخة عند فتح البرنامج (إن حان الموعد) وعند إغلاقه.
-- النسخ تتم بـ **SQLite Online Backup API**، أي نسخة متسقة حتى أثناء البيع، ثم يُفحص الملف الناتج بـ `integrity_check`.
-- المكان الافتراضي: `C:\ProgramData\BaqalaPOS\backups\baqala_YYYYMMDD_HHMMSS_auto.db`، ويُحتفظ بآخر 60 نسخة وتُحذف الأقدم.
+- **SQL Server:** نسخة كاملة `BACKUP DATABASE ... WITH CHECKSUM` بملف `.bak` ثم `RESTORE VERIFYONLY`. خدمة SQL Server هي التي تكتب الملف، لذلك يجب أن يكون مجلد النسخ على جهاز الخادم (المثبت يمنحها صلاحية الكتابة في المجلد الافتراضي).
+- **SQLite:** نسخة بـ **Online Backup API** متسقة حتى أثناء البيع، ثم يُفحص الملف بـ `integrity_check`.
+- المكان الافتراضي: `C:\ProgramData\BaqalaPOS\backups\baqala_YYYYMMDD_HHMMSS_auto.bak` (أو `.db`)، ويُحتفظ بآخر 60 نسخة وتُحذف الأقدم.
 - يُنصح بتحديد **مجلد نسخ إضافي** على فلاشة أو قرص آخر من الإعدادات، فتُنسخ كل نسخة إليه أيضاً.
 - **الاستعادة:** الإعدادات ← اختر النسخة ← «استعادة نسخة». يحفظ البرنامج نسخة أمان من البيانات الحالية أولاً، ثم يستبدلها ويعيد التشغيل.
 
