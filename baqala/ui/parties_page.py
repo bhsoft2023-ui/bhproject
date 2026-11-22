@@ -88,6 +88,9 @@ class PartiesPage(QWidget):
         self.search.setPlaceholderText("بحث بالاسم أو الهاتف")
         self.search.textChanged.connect(self.refresh)
         top.addWidget(self.search, 1)
+        self.show_inactive = QCheckBox("إظهار الموقوفين")
+        self.show_inactive.toggled.connect(self.refresh)
+        top.addWidget(self.show_inactive)
         edit_perm = "customer.edit" if kind == "customer" else "supplier.manage"
         pay_perm = "customer.payment" if kind == "customer" else "supplier.manage"
         for text, slot, perm in [(f"إضافة {L['one']}", self.add, edit_perm), ("تعديل", self.edit, edit_perm),
@@ -112,7 +115,7 @@ class PartiesPage(QWidget):
         self.refresh()
 
     def refresh(self):
-        rows = parties.list_parties(self.conn, self.kind, self.search.text())
+        rows = parties.list_parties(self.conn, self.kind, self.search.text(), self.show_inactive.isChecked())
         self.rows = {r["id"]: r for r in rows}
         data = []
         for r in rows:
