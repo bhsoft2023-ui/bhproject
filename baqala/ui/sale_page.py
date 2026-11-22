@@ -182,7 +182,7 @@ class SalePage(QWidget):
                 self.barcode.setFocus()
                 return
             quantity = dlg.value
-        self.add_to_cart(product, quantity or Decimal(1))
+        self.add_to_cart(product, Decimal(1) if quantity is None else quantity)
 
     def add_to_cart(self, product, quantity):
         existing = next((l for l in self.cart if l["product"]["id"] == product["id"]), None)
