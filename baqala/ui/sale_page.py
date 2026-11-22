@@ -105,7 +105,7 @@ class SalePage(QWidget):
         btn("بحث عن صنف (F3)", self.search_product)
         btn("تعديل الكمية/الوزن (F4)", self.edit_qty)
         btn("حذف السطر (Delete)", self.remove_line)
-        btn("إلغاء الفاتورة (Esc)", self.clear_cart, "#757575")
+        btn("إلغاء الفاتورة (Esc)", lambda: self.clear_cart(), "#757575")
         btn("طباعة آخر فاتورة", self.print_last, "#5d4037")
         side.addStretch()
         sep = QFrame()
