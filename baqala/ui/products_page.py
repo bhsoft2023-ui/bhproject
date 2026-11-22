@@ -59,7 +59,13 @@ class ProductDialog(QDialog):
             self.min_qty.set_value(int_to_qty(product["min_qty"]))
             self.track_expiry.setChecked(bool(product["track_expiry"]))
         f.addRow(ok_cancel(self))
-        self.barcode.returnPressed.connect(lambda: self.category.setFocus())  # لا يُغلق النافذة عند المسح
+
+    def keyPressEvent(self, event):
+        # قارئ الباركود يرسل Enter: ننقل التركيز بدل حفظ النافذة
+        if event.key() in (Qt.Key_Return, Qt.Key_Enter) and self.focusWidget() is self.barcode:
+            self.category.setFocus()
+            return
+        super().keyPressEvent(event)
 
     def data(self):
         return {
